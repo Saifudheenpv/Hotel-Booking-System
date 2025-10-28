@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class RoomService {
@@ -16,19 +15,51 @@ public class RoomService {
     @Autowired
     private RoomRepository roomRepository;
 
-    public List<Room> getAvailableRoomsByHotel(Long hotelId) {
-        return roomRepository.findByHotelIdAndAvailableTrue(hotelId);
-    }
-
-    public List<Room> getAvailableRoomsByDates(Long hotelId, LocalDate checkIn, LocalDate checkOut) {
-        if (checkIn == null || checkOut == null) {
-            return getAvailableRoomsByHotel(hotelId);
+    public List<Room> getAvailableRoomsByHotelAndDates(Long hotelId, LocalDate checkIn, LocalDate checkOut) {
+        if (checkIn != null && checkOut != null) {
+            return roomRepository.findAvailableRoomsByHotelAndDates(hotelId, checkIn, checkOut);
+        } else {
+            return roomRepository.findByHotelIdAndAvailableTrue(hotelId);
         }
-        return roomRepository.findAvailableRoomsByHotelAndDates(hotelId, checkIn, checkOut);
     }
 
-    public Optional<Room> getRoomById(Long id) {
-        return roomRepository.findById(id);
+    public Room getRoomById(Long id) {
+        return roomRepository.findById(id).orElse(null);
+    }
+
+    public List<Room> getFilteredRooms(Long hotelId, String checkIn, String checkOut, 
+                                      String roomType, Double maxPrice) {
+        List<Room> rooms;
+        
+        // Handle date-based availability
+        if (checkIn != null && checkOut != null && !checkIn.isEmpty() && !checkOut.isEmpty()) {
+            try {
+                LocalDate checkInDate = LocalDate.parse(checkIn);
+                LocalDate checkOutDate = LocalDate.parse(checkOut);
+                rooms = getAvailableRoomsByHotelAndDates(hotelId, checkInDate, checkOutDate);
+            } catch (Exception e) {
+                // If date parsing fails, fall back to all available rooms
+                rooms = roomRepository.findByHotelIdAndAvailableTrue(hotelId);
+            }
+        } else {
+            // No dates provided, show all available rooms
+            rooms = roomRepository.findByHotelIdAndAvailableTrue(hotelId);
+        }
+        
+        // Apply additional filters
+        if (roomType != null && !roomType.isEmpty()) {
+            rooms = rooms.stream()
+                .filter(room -> room.getType().equalsIgnoreCase(roomType))
+                .toList();
+        }
+        
+        if (maxPrice != null) {
+            rooms = rooms.stream()
+                .filter(room -> room.getPrice().doubleValue() <= maxPrice)
+                .toList();
+        }
+        
+        return rooms;
     }
 
     public Room saveRoom(Room room) {

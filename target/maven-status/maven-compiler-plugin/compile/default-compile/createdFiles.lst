@@ -12,6 +12,7 @@ com/hotel/controller/BookingController.class
 com/hotel/service/BookingService.class
 com/hotel/model/User.class
 com/hotel/HotelBookingApplication.class
+com/hotel/controller/HotelController.class
 com/hotel/controller/HomeController.class
 com/hotel/service/HotelService.class
 com/hotel/service/RoomService.class

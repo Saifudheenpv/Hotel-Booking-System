@@ -10,31 +10,36 @@ import java.util.Optional;
 
 @Service
 public class UserService {
-    
+
     @Autowired
     private UserRepository userRepository;
 
-    public User registerUser(User user) {
-        if (userRepository.existsByEmail(user.getEmail())) {
-            throw new RuntimeException("Email already exists");
+    public User authenticate(String email, String password) {
+        User user = userRepository.findByEmail(email);
+        if (user != null && user.getPassword().equals(password)) { // In real app, use password hashing
+            return user;
+        }
+        return null;
+    }
+
+    public User createUser(User user) {
+        // Check if email already exists
+        if (userRepository.findByEmail(user.getEmail()) != null) {
+            throw new RuntimeException("Email already registered");
         }
         return userRepository.save(user);
     }
 
-    public Optional<User> loginUser(String email, String password) {
-        Optional<User> user = userRepository.findByEmail(email);
-        if (user.isPresent() && user.get().getPassword().equals(password)) {
-            return user;
-        }
-        return Optional.empty();
+    public User getUserByEmail(String email) {
+        return userRepository.findByEmail(email);
+    }
+
+    public User getUserById(Long id) {
+        return userRepository.findById(id).orElse(null);
     }
 
     public List<User> getAllUsers() {
         return userRepository.findAll();
-    }
-
-    public Optional<User> getUserById(Long id) {
-        return userRepository.findById(id);
     }
 
     public User updateUser(User user) {

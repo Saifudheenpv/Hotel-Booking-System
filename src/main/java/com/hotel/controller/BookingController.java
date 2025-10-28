@@ -4,7 +4,6 @@ import com.hotel.model.Booking;
 import com.hotel.model.Room;
 import com.hotel.model.User;
 import com.hotel.service.BookingService;
-import com.hotel.service.HotelService;
 import com.hotel.service.RoomService;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,63 +26,7 @@ public class BookingController {
     private BookingService bookingService;
     
     @Autowired
-    private HotelService hotelService;
-    
-    @Autowired
     private RoomService roomService;
-
-    @GetMapping("/hotel/{id}/rooms")
-    public String showHotelRooms(@PathVariable Long id, 
-                                @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate checkIn,
-                                @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate checkOut,
-                                @RequestParam(required = false) String roomType,
-                                @RequestParam(required = false) BigDecimal maxPrice,
-                                Model model, HttpSession session) {
-        User user = (User) session.getAttribute("user");
-        if (user == null) {
-            return "redirect:/login";
-        }
-
-        var hotelOpt = hotelService.getHotelById(id);
-        if (hotelOpt.isEmpty()) {
-            return "redirect:/";
-        }
-
-        model.addAttribute("user", user);
-        model.addAttribute("hotel", hotelOpt.get());
-        
-        List<Room> availableRooms;
-        if (checkIn != null && checkOut != null) {
-            availableRooms = roomService.getAvailableRoomsByDates(id, checkIn, checkOut);
-            model.addAttribute("checkIn", checkIn);
-            model.addAttribute("checkOut", checkOut);
-            
-            // Calculate number of nights
-            long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
-            model.addAttribute("nights", nights);
-        } else {
-            availableRooms = roomService.getAvailableRoomsByHotel(id);
-        }
-        
-        // Apply filters
-        if (roomType != null && !roomType.isEmpty()) {
-            availableRooms = availableRooms.stream()
-                .filter(room -> room.getType().toLowerCase().contains(roomType.toLowerCase()))
-                .toList();
-        }
-        
-        if (maxPrice != null) {
-            availableRooms = availableRooms.stream()
-                .filter(room -> room.getPrice().compareTo(maxPrice) <= 0)
-                .toList();
-        }
-        
-        model.addAttribute("rooms", availableRooms);
-        model.addAttribute("roomType", roomType);
-        model.addAttribute("maxPrice", maxPrice);
-        
-        return "hotel-rooms";
-    }
 
     @GetMapping("/room/{id}/details")
     public String showRoomDetails(@PathVariable Long id, 
@@ -95,12 +38,11 @@ public class BookingController {
             return "redirect:/login";
         }
 
-        Optional<Room> roomOpt = roomService.getRoomById(id);
-        if (roomOpt.isEmpty()) {
+        Room room = roomService.getRoomById(id);
+        if (room == null) {
             return "redirect:/";
         }
 
-        Room room = roomOpt.get();
         model.addAttribute("user", user);
         model.addAttribute("room", room);
         model.addAttribute("hotel", room.getHotel());
@@ -133,22 +75,24 @@ public class BookingController {
         // Validate dates
         if (checkIn.isBefore(LocalDate.now()) || checkOut.isBefore(LocalDate.now()) || 
             checkOut.isBefore(checkIn) || checkIn.equals(checkOut)) {
-            redirectAttributes.addFlashAttribute("error", "Invalid dates selected!");
+            redirectAttributes.addFlashAttribute("error", "Invalid dates selected! Please ensure check-out is after check-in.");
             return "redirect:/my-bookings";
         }
 
-        Optional<Room> room = roomService.getRoomById(roomId);
-        if (room.isPresent() && room.get().getAvailable()) {
+        Room room = roomService.getRoomById(roomId);
+        if (room != null) {
             try {
-                Booking booking = bookingService.createBooking(user, room.get(), checkIn, checkOut, guests, specialRequests);
+                Booking booking = bookingService.createBooking(user, room, checkIn, checkOut, guests, specialRequests);
                 redirectAttributes.addFlashAttribute("success", 
                     "Booking confirmed! Your Booking ID: " + booking.getId() + 
-                    ". Total Amount: $" + booking.getTotalPrice());
+                    ". Total Amount: $" + booking.getTotalPrice() +
+                    ". Check your email for confirmation details.");
+                return "redirect:/booking-confirmation/" + booking.getId();
             } catch (Exception e) {
                 redirectAttributes.addFlashAttribute("error", "Booking failed: " + e.getMessage());
             }
         } else {
-            redirectAttributes.addFlashAttribute("error", "Room not available for the selected dates!");
+            redirectAttributes.addFlashAttribute("error", "Room not found!");
         }
 
         return "redirect:/my-bookings";
@@ -168,10 +112,21 @@ public class BookingController {
     }
 
     @PostMapping("/cancel-booking")
-    public String cancelBooking(@RequestParam Long bookingId, RedirectAttributes redirectAttributes) {
+    public String cancelBooking(@RequestParam Long bookingId, RedirectAttributes redirectAttributes, HttpSession session) {
+        User user = (User) session.getAttribute("user");
+        if (user == null) {
+            return "redirect:/login";
+        }
+
         try {
-            bookingService.cancelBooking(bookingId);
-            redirectAttributes.addFlashAttribute("success", "Booking cancelled successfully!");
+            // Verify the booking belongs to the user
+            Optional<Booking> bookingOpt = bookingService.getBookingById(bookingId);
+            if (bookingOpt.isPresent() && bookingOpt.get().getUser().getId().equals(user.getId())) {
+                bookingService.cancelBooking(bookingId);
+                redirectAttributes.addFlashAttribute("success", "Booking cancelled successfully!");
+            } else {
+                redirectAttributes.addFlashAttribute("error", "Booking not found or access denied!");
+            }
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "Error cancelling booking: " + e.getMessage());
         }
@@ -179,19 +134,20 @@ public class BookingController {
     }
 
     @GetMapping("/booking-confirmation/{id}")
-    public String showBookingConfirmation(@PathVariable Long id, Model model, HttpSession session) {
+    public String showBookingConfirmation(@PathVariable Long id, Model model, HttpSession session, RedirectAttributes redirectAttributes) {
         User user = (User) session.getAttribute("user");
         if (user == null) {
             return "redirect:/login";
         }
 
-        Optional<Booking> booking = bookingService.getBookingById(id);
-        if (booking.isPresent() && booking.get().getUser().getId().equals(user.getId())) {
-            model.addAttribute("booking", booking.get());
+        Optional<Booking> bookingOpt = bookingService.getBookingById(id);
+        if (bookingOpt.isPresent() && bookingOpt.get().getUser().getId().equals(user.getId())) {
+            model.addAttribute("booking", bookingOpt.get());
             model.addAttribute("user", user);
             return "booking-confirmation";
         }
 
+        redirectAttributes.addFlashAttribute("error", "Booking not found!");
         return "redirect:/my-bookings";
     }
 }
