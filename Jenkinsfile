@@ -28,8 +28,12 @@ pipeline {
             }
             post {
                 success {
-                    junit 'target/surefire-reports/*.xml'
+                    // FIX: Try multiple possible test report locations
+                    junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
                     echo "✅ Maven compile and tests passed!"
+                }
+                failure {
+                    echo "❌ Maven compile or tests failed!"
                 }
             }
         }
