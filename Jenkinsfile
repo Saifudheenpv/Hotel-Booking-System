@@ -11,7 +11,7 @@ pipeline {
         DOCKER_REGISTRY = 'docker.io/saifudheenpv'
         NEXUS_URL = 'http://43.205.5.17:8081/repository/maven-releases/'
         K8S_NAMESPACE = 'hotel-booking-prod'
-        APP_URL = 'http://43.205.5.17:8080'  // Using your server IP
+        APP_URL = 'http://43.205.5.17:8080'
     }
     
     stages {
@@ -67,8 +67,8 @@ pipeline {
                     sh """
                         mvn deploy:deploy-file \
                         -DskipTests \
-                        -Dfile=target/hotel-booking-system-0.0.1-SNAPSHOT.jar \  // USE ACTUAL JAR NAME
-                        -DgroupId=com.example \  // USE ACTUAL GROUP ID FROM POM.XML
+                        -Dfile=target/hotel-booking-system-0.0.1-SNAPSHOT.jar \
+                        -DgroupId=com.example \
                         -DartifactId=hotel-booking-system \
                         -Dversion=1.0.0-${env.BUILD_ID} \
                         -Dpackaging=jar \
@@ -149,7 +149,7 @@ pipeline {
                 
                 🌐 Application is live at: ${APP_URL}
                 """,
-                to: 'saifudheenpv@gmail.com'  // YOUR EMAIL
+                to: 'saifudheenpv@gmail.com'
             )
         }
         failure {
@@ -161,7 +161,7 @@ pipeline {
                 Build Number: ${env.BUILD_NUMBER}
                 Build URL: ${env.BUILD_URL}
                 """,
-                to: 'saifudheenpv@gmail.com'  // YOUR EMAIL
+                to: 'saifudheenpv@gmail.com'
             )
         }
     }
