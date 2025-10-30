@@ -14,7 +14,7 @@ pipeline {
         AWS_ACCOUNT_ID = '724663512594'
         AWS_REGION = 'ap-south-1'
         ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        DEPLOYMENT_SERVER = '43.204.234.54  // Replace with your deployment EC2 IP
+        DEPLOYMENT_SERVER = '43.204.234.54'  // Replace with your deployment EC2 IP
     }
     
     stages {
