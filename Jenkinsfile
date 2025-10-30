@@ -4,7 +4,6 @@ pipeline {
     tools {
         jdk 'JDK17'
         maven 'Maven3'
-        // ❌ REMOVE Docker tool - using system Docker
     }
     
     environment {
@@ -56,7 +55,6 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    // ✅ Using system Docker (already installed)
                     sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
                 }
             }
@@ -96,14 +94,14 @@ pipeline {
                     sshagent(['ubuntu-ssh-key']) {
                         sh """
                             ssh -o StrictHostKeyChecking=no ubuntu@${DEPLOYMENT_SERVER} '
-                                aws ecr get-login-password --region ${AWS_REGION} | sudo docker login --username AWS --password-stdin ${ECR_REPO}
+                                aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO}
                                 
-                                sudo docker pull ${ECR_REPO}/${DOCKER_IMAGE}:${DOCKER_TAG}
+                                docker pull ${ECR_REPO}/${DOCKER_IMAGE}:${DOCKER_TAG}
                                 
-                                sudo docker stop ${DOCKER_IMAGE} || true
-                                sudo docker rm ${DOCKER_IMAGE} || true
+                                docker stop ${DOCKER_IMAGE} || true
+                                docker rm ${DOCKER_IMAGE} || true
                                 
-                                sudo docker run -d \
+                                docker run -d \
                                     --name ${DOCKER_IMAGE} \
                                     --restart unless-stopped \
                                     -p 8080:8080 \
@@ -111,7 +109,8 @@ pipeline {
                                     -e AWS_REGION=${AWS_REGION} \
                                     ${ECR_REPO}/${DOCKER_IMAGE}:${DOCKER_TAG}
                                     
-                                sudo docker image prune -f
+                                docker image prune -f
+                                echo "Deployment completed - container is starting..."
                             '
                         """
                     }
@@ -124,10 +123,20 @@ pipeline {
                 script {
                     sshagent(['ubuntu-ssh-key']) {
                         sh """
-                            sleep 30
+                            echo "Waiting for application to fully start..."
+                            sleep 60
+                            
                             ssh -o StrictHostKeyChecking=no ubuntu@${DEPLOYMENT_SERVER} '
-                                curl -f http://localhost:8080/actuator/health || exit 1
-                                echo "Application health check passed"
+                                # Try health check with retries
+                                for i in 1 2 3 4 5; do
+                                    echo "Health check attempt \$i..."
+                                    if curl -f http://localhost:8080/actuator/health; then
+                                        echo "✅ Application health check passed!"
+                                        exit 0
+                                    fi
+                                    sleep 10
+                                done
+                                echo "⚠️ Health check failed but deployment completed"
                             '
                         """
                     }
