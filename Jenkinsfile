@@ -4,8 +4,7 @@ pipeline {
     tools {
         jdk 'JDK17'
         maven 'Maven3'
-        // ✅ Use the exact name from your SonarQube Scanner installations
-        hudson.plugins.sonar.SonarRunnerInstallation 'Sonar-Scanner'
+        
     }
     
     environment {
