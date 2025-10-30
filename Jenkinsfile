@@ -4,24 +4,25 @@ pipeline {
     tools {
         jdk 'JDK17'
         maven 'Maven3'
-        sonarScanner 'Sonar-Scanner'
+        // ✅ Use the exact name from your SonarQube Scanner installations
+        hudson.plugins.sonar.SonarRunnerInstallation 'Sonar-Scanner'
     }
     
     environment {
         DOCKER_IMAGE = 'hotel-booking-system'
         DOCKER_TAG = "${env.BUILD_ID}-${env.GIT_COMMIT.substring(0,7)}"
-        SONAR_URL = 'http://13.233.38.12:9000/'  // Replace with your SonarQube EC2 IP
+        SONAR_URL = 'http://13.233.38.12:9000'
         AWS_ACCOUNT_ID = '724663512594'
         AWS_REGION = 'ap-south-1'
         ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        DEPLOYMENT_SERVER = '43.204.234.54'  // Replace with your deployment EC2 IP
+        DEPLOYMENT_SERVER = '43.204.234.54'
     }
     
     stages {
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/Saifudheenpv/hotel-booking-system.git',
+                    url: 'https://github.com/Saifudheenpv/Hotel-Booking-System.git',
                     credentialsId: 'github-credentials'
                 
                 script {
@@ -131,7 +132,6 @@ pipeline {
                                     --name ${DOCKER_IMAGE} \
                                     --restart unless-stopped \
                                     -p 8080:8080 \
-                                    -p 5000:5000 \
                                     -e SPRING_PROFILES_ACTIVE=dev \
                                     -e AWS_REGION=${AWS_REGION} \
                                     ${ECR_REPO}/${DOCKER_IMAGE}:${DOCKER_TAG}
@@ -178,9 +178,6 @@ pipeline {
     
     post {
         always {
-            // Clean workspace
-            cleanWs()
-            
             // Update build description
             script {
                 currentBuild.description = "Build: ${currentBuild.currentResult}"
