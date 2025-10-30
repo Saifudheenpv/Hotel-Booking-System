@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <!-- Suppress spring boot false positives -->
+    <suppress>
+        <notes><![CDATA[
+        False positive for spring framework
+        ]]></notes>
+        <gav regex="true">^org\.springframework\.boot:spring-boot-starter.*$</gav>
+        <cpe>cpe:/a:springsource:spring_framework</cpe>
+    </suppress>
+    
+    <!-- Suppress thymeleaf false positives -->
+    <suppress>
+        <notes><![CDATA[
+        False positive for thymeleaf
+        ]]></notes>
+        <gav regex="true">^org\.thymeleaf:.*$</gav>
+        <cpe>cpe:/a:thymeleaf:thymeleaf</cpe>
+    </suppress>
+    
+    <!-- Suppress mysql connector false positives -->
+    <suppress>
+        <notes><![CDATA[
+        False positive for mysql connector
+        ]]></notes>
+        <gav regex="true">^com\.mysql:mysql-connector-j.*$</gav>
+        <cpe>cpe:/a:mysql:mysql</cpe>
+    </suppress>
+</suppressions>
