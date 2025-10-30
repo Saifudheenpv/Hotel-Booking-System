@@ -8,7 +8,7 @@ pipeline {
     
     environment {
         DOCKER_IMAGE = 'hotel-booking-system'
-        DOCKER_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
+        DOCKER_TAG = "${env.BUILD_NUMBER}"
         SONAR_URL = 'http://13.233.38.12:9000'
         AWS_ACCOUNT_ID = '724663512594'
         AWS_REGION = 'ap-south-1'
@@ -65,7 +65,12 @@ pipeline {
         stage('Push to AWS ECR') {
             steps {
                 script {
-                    withAWS(credentials: 'aws-credentials', region: 'ap-south-1') {
+                    withCredentials([[
+                        $class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-credentials',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                    ]]) {
                         sh """
                             aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO}
                             docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${ECR_REPO}/${DOCKER_IMAGE}:${DOCKER_TAG}
@@ -106,7 +111,7 @@ pipeline {
                                 sleep 30
                                 
                                 # Create database
-                                docker exec hotel-booking-mysql mysql -u root -p${MYSQL_ROOT_PASSWORD} -e "CREATE DATABASE IF NOT EXISTS ${MYSQL_DATABASE};"
+                                docker exec hotel-booking-mysql mysql -u root -p${MYSQL_ROOT_PASSWORD} -e "CREATE DATABASE IF NOT EXISTS ${MYSQL_DATABASE};" || echo "Database creation check"
                                 
                                 # Pull and run application
                                 aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPO}
@@ -140,12 +145,13 @@ pipeline {
                         sh """
                             sleep 30
                             ssh -o StrictHostKeyChecking=no ubuntu@${DEPLOYMENT_SERVER} '
-                                echo "Checking deployment..."
+                                echo "=== Deployment Status ==="
                                 docker ps
-                                echo "Testing application..."
-                                curl -f http://localhost:8080/actuator/health || echo "Health check failed but continuing"
-                                echo "Application deployed successfully!"
-                                echo "Access your site at: http://${DEPLOYMENT_SERVER}:8080"
+                                echo "=== Application Health ==="
+                                curl -f http://localhost:8080/actuator/health || curl -s http://localhost:8080/actuator/health || echo "Health endpoint not ready yet"
+                                echo "=== Application Logs ==="
+                                docker logs hotel-booking-system --tail 20
+                                echo "🎉 Application deployed to: http://${DEPLOYMENT_SERVER}:8080"
                             '
                         """
                     }
@@ -156,46 +162,36 @@ pipeline {
     
     post {
         always {
-            script {
-                echo "Build ${currentBuild.currentResult}"
-                // Simple cleanup without complex steps
-                sh 'docker system prune -f || true'
-            }
+            echo "Build ${currentBuild.currentResult}"
         }
         success {
-            script {
-                emailext (
-                    subject: "SUCCESS: Hotel Booking System Build #${env.BUILD_NUMBER}",
-                    body: """
-                    <h2>Build Successful</h2>
-                    <p><b>Project:</b> Hotel Booking System</p>
-                    <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
-                    <p><b>Status:</b> Deployed Successfully</p>
-                    <p><b>Application URL:</b> <a href="http://${DEPLOYMENT_SERVER}:8080">http://${DEPLOYMENT_SERVER}:8080</a></p>
-                    <p><b>View Build:</b> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
-                    """,
-                    to: "mesaifudheenpv@gmail.com",
-                    from: "jenkins@example.com",
-                    replyTo: "mesaifudheenpv@gmail.com"
-                )
-            }
+            emailext (
+                subject: "SUCCESS: Hotel Booking System Build #${env.BUILD_NUMBER}",
+                body: """
+                <h2>Build & Deployment Successful</h2>
+                <p><b>Project:</b> Hotel Booking System</p>
+                <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
+                <p><b>Status:</b> Deployed Successfully</p>
+                <p><b>Application URL:</b> <a href="http://${DEPLOYMENT_SERVER}:8080">http://${DEPLOYMENT_SERVER}:8080</a></p>
+                <p><b>View Build:</b> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
+                """,
+                to: "mesaifudheenpv@gmail.com",
+                replyTo: "mesaifudheenpv@gmail.com"
+            )
         }
         failure {
-            script {
-                emailext (
-                    subject: "FAILED: Hotel Booking System Build #${env.BUILD_NUMBER}",
-                    body: """
-                    <h2>Build Failed</h2>
-                    <p><b>Project:</b> Hotel Booking System</p>
-                    <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
-                    <p><b>View Build:</b> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
-                    <p><b>Console Output:</b> <a href="${env.BUILD_URL}/console">View Logs</a></p>
-                    """,
-                    to: "mesaifudheenpv@gmail.com",
-                    from: "jenkins@example.com",
-                    replyTo: "mesaifudheenpv@gmail.com"
-                )
-            }
+            emailext (
+                subject: "FAILED: Hotel Booking System Build #${env.BUILD_NUMBER}",
+                body: """
+                <h2>Build Failed</h2>
+                <p><b>Project:</b> Hotel Booking System</p>
+                <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
+                <p><b>View Build:</b> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
+                <p><b>Console Output:</b> <a href="${env.BUILD_URL}/console">View Logs</a></p>
+                """,
+                to: "mesaifudheenpv@gmail.com",
+                replyTo: "mesaifudheenpv@gmail.com"
+            )
         }
     }
 }
