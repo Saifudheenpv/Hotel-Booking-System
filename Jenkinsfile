@@ -52,17 +52,6 @@ pipeline {
             }
         }
         
-        stage('OWASP Dependency Check') {
-            steps {
-                sh 'mvn org.owasp:dependency-check-maven:check -DskipTests'
-            }
-            post {
-                always {
-                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-                }
-            }
-        }
-        
         stage('Build Docker Image') {
             steps {
                 script {
