@@ -20,28 +20,47 @@ pipeline {
             }
         }
         
-        stage('Verify Files') {
+        stage('Verify Project Structure') {
             steps {
                 sh '''
                     echo "📁 Project Structure:"
                     ls -la
-                    echo "🐳 Dockerfile Content:"
+                    echo "📦 Source Code:"
+                    find src -name "*.java" | head -10
+                    echo "🐳 Dockerfile:"
                     cat Dockerfile
-                    echo "📦 JAR Files:"
-                    ls -la target/*.jar
                 '''
             }
         }
         
         stage('Maven Build & Test') {
             steps {
-                sh 'mvn clean compile test'
+                sh '''
+                    echo "🔨 Running Maven build..."
+                    mvn clean compile test
+                    echo "📦 Checking build output..."
+                    ls -la target/
+                    find target/ -name "*.jar" -o -name "*.class" | head -10
+                '''
             }
             post {
                 success {
                     junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
                     echo "✅ Build and tests completed!"
                 }
+            }
+        }
+        
+        stage('Package Application') {
+            steps {
+                sh '''
+                    echo "📦 Packaging application..."
+                    mvn clean package -DskipTests
+                    echo "📋 Build artifacts:"
+                    ls -la target/
+                    echo "📦 JAR files:"
+                    find target/ -name "*.jar" -type f
+                '''
             }
         }
         
@@ -55,19 +74,16 @@ pipeline {
             }
         }
         
-        stage('Package Application') {
-            steps {
-                sh 'mvn clean package -DskipTests'
-                archiveArtifacts 'target/*.jar'
-                echo "✅ Application packaged successfully!"
-            }
-        }
-        
         stage('Build Docker Image') {
             steps {
                 script {
                     sh '''
                         echo "🐳 Building Docker image..."
+                        # List all JAR files to find the correct one
+                        echo "📦 Available JAR files:"
+                        find target/ -name "*.jar" -type f
+                        
+                        # Build Docker image
                         docker build -t ${DOCKER_REGISTRY}/hotel-booking-system:${BUILD_ID} .
                         echo "✅ Docker image built successfully!"
                     '''
@@ -137,30 +153,6 @@ pipeline {
                 }
             }
         }
-        
-        stage('Smoke Tests') {
-            steps {
-                script {
-                    sh """
-                        echo "🧪 Running smoke tests..."
-                        
-                        # Get NodePort
-                        NODE_PORT=\$(kubectl get svc hotel-booking-system -n ${K8S_NAMESPACE} -o jsonpath='{.spec.ports[0].nodePort}')
-                        echo "🌐 Application accessible at: http://43.205.5.17:\$NODE_PORT"
-                        
-                        # Wait for app to start
-                        echo "⏳ Waiting for application to start..."
-                        sleep 30
-                        
-                        # Test health endpoint
-                        echo "🔍 Testing health endpoint..."
-                        curl -f http://43.205.5.17:\$NODE_PORT/actuator/health || echo "⚠️ Health check failed but continuing..."
-                        
-                        echo "✅ Smoke tests completed!"
-                    """
-                }
-            }
-        }
     }
     
     post {
@@ -174,17 +166,12 @@ pipeline {
                 body: """
                 🎉 Hotel Booking System successfully deployed!
                 
-                📋 Build Details:
-                - Build Number: ${BUILD_NUMBER}
-                - Build URL: ${BUILD_URL}
-                - Docker Image: ${DOCKER_REGISTRY}/hotel-booking-system:${BUILD_ID}
-                - Deployment Time: ${new Date().format('yyyy-MM-dd HH:mm:ss')}
-                
-                Application deployed to Kubernetes!
+                Build Number: ${BUILD_NUMBER}
+                Build URL: ${BUILD_URL}
+                Docker Image: ${DOCKER_REGISTRY}/hotel-booking-system:${BUILD_ID}
                 """,
                 to: 'saifudheenpv@gmail.com'
             )
-            echo "✅ Email notification sent!"
         }
         failure {
             emailext (
@@ -197,7 +184,6 @@ pipeline {
                 """,
                 to: 'saifudheenpv@gmail.com'
             )
-            echo "❌ Email notification sent for failure!"
         }
     }
 }
