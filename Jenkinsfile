@@ -33,7 +33,7 @@ pipeline {
         
         stage('Build Package') {
             steps {
-                sh 'mvn clean package -DskipTests'  # ✅ Skip tests since we deleted them
+                sh 'mvn clean package -DskipTests'
                 archiveArtifacts 'target/*.jar'
             }
         }
@@ -46,7 +46,7 @@ pipeline {
                         -Dsonar.projectKey=hotel-booking-system \
                         -Dsonar.projectName="Hotel Booking System" \
                         -Dsonar.host.url=${SONAR_URL} \
-                        -Dsonar.coverage.exclusions=**/*  # ✅ Skip coverage since no tests
+                        -Dsonar.coverage.exclusions=**/*
                     """
                 }
             }
@@ -105,17 +105,13 @@ pipeline {
                     sshagent(['ubuntu-ssh-key']) {
                         sh """
                             ssh -o StrictHostKeyChecking=no ubuntu@${DEPLOYMENT_SERVER} '
-                                # Login to AWS ECR
                                 aws ecr get-login-password --region ${AWS_REGION} | sudo docker login --username AWS --password-stdin ${ECR_REPO}
                                 
-                                # Pull latest image
                                 sudo docker pull ${ECR_REPO}/${DOCKER_IMAGE}:${DOCKER_TAG}
                                 
-                                # Stop and remove old container
                                 sudo docker stop ${DOCKER_IMAGE} || true
                                 sudo docker rm ${DOCKER_IMAGE} || true
                                 
-                                # Run new container
                                 sudo docker run -d \
                                     --name ${DOCKER_IMAGE} \
                                     --restart unless-stopped \
@@ -124,7 +120,6 @@ pipeline {
                                     -e AWS_REGION=${AWS_REGION} \
                                     ${ECR_REPO}/${DOCKER_IMAGE}:${DOCKER_TAG}
                                     
-                                # Clean up old images
                                 sudo docker image prune -f
                             '
                         """
@@ -138,13 +133,10 @@ pipeline {
                 script {
                     sshagent(['ubuntu-ssh-key']) {
                         sh """
-                            # Wait for application to start
                             sleep 30
-                            
-                            # Health check
                             ssh -o StrictHostKeyChecking=no ubuntu@${DEPLOYMENT_SERVER} '
                                 curl -f http://localhost:8080/actuator/health || exit 1
-                                echo "✅ Application health check passed"
+                                echo "Application health check passed"
                             '
                         """
                     }
@@ -155,7 +147,6 @@ pipeline {
     
     post {
         always {
-            // Update build description
             script {
                 currentBuild.description = "Build: ${currentBuild.currentResult}"
             }
@@ -164,7 +155,7 @@ pipeline {
             emailext (
                 subject: "SUCCESS: Hotel Booking System Build #${env.BUILD_NUMBER}",
                 body: """
-                <h2>🚀 Build Successful!</h2>
+                <h2>Build Successful</h2>
                 <p><b>Project:</b> Hotel Booking System</p>
                 <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
                 <p><b>Commit:</b> ${env.GIT_COMMIT.substring(0,7)}</p>
@@ -183,7 +174,7 @@ pipeline {
             emailext (
                 subject: "FAILED: Hotel Booking System Build #${env.BUILD_NUMBER}",
                 body: """
-                <h2>❌ Build Failed!</h2>
+                <h2>Build Failed</h2>
                 <p><b>Project:</b> Hotel Booking System</p>
                 <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
                 <p><b>Commit:</b> ${env.GIT_COMMIT.substring(0,7)}</p>
