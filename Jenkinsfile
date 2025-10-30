@@ -4,6 +4,7 @@ pipeline {
     tools {
         jdk 'JDK17'
         maven 'Maven3'
+        // ❌ REMOVE Docker tool - using system Docker
     }
     
     environment {
@@ -55,7 +56,8 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
+                    // ✅ Using system Docker (already installed)
+                    sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
                 }
             }
         }
