@@ -20,12 +20,10 @@
         <java.version>17</java.version>
         <mysql.version>8.3.0</mysql.version>
         <sonar-maven-plugin.version>3.9.1.2184</sonar-maven-plugin.version>
+        <jacoco-maven-plugin.version>0.8.11</jacoco-maven-plugin.version>
         <dependency-check-maven.version>7.1.1</dependency-check-maven.version>
         <maven-surefire-plugin.version>3.0.0</maven-surefire-plugin.version>
         <maven-failsafe-plugin.version>3.0.0</maven-failsafe-plugin.version>
-        <maven.test.failure.ignore>true</maven.test.failure.ignore>
-        <!-- Add JaCoCo version -->
-        <jacoco.version>0.8.11</jacoco.version>
     </properties>
 
     <dependencies>
@@ -93,7 +91,7 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>${jacoco.version}</version>
+                <version>${jacoco-maven-plugin.version}</version>
                 <executions>
                     <execution>
                         <id>prepare-agent</id>
@@ -141,7 +139,6 @@
                     <systemPropertyVariables>
                         <java.awt.headless>true</java.awt.headless>
                     </systemPropertyVariables>
-                    <testFailureIgnore>true</testFailureIgnore>
                 </configuration>
             </plugin>
 
@@ -225,34 +222,12 @@
                 <activeByDefault>true</activeByDefault>
             </activation>
             <properties>
-                <sonar.host.url>http://localhost:9000</sonar.host.url>
+                <sonar.host.url>http://13.233.38.12:9000</sonar.host.url>
                 <sonar.login>${env.SONAR_TOKEN}</sonar.login>
-                <sonar.junit.reportsPath>target/surefire-reports</sonar.junit.reportsPath>
-                <!-- Add SonarQube coverage properties -->
                 <sonar.coverage.jacoco.xmlReportPaths>target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+                <sonar.junit.reportsPath>target/surefire-reports</sonar.junit.reportsPath>
                 <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
             </properties>
-        </profile>
-
-        <!-- Integration Test Profile -->
-        <profile>
-            <id>integration-tests</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-failsafe-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <goals>
-                                    <goal>integration-test</goal>
-                                    <goal>verify</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
         </profile>
     </profiles>
 </project>

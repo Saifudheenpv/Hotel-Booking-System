@@ -6,15 +6,18 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Runtime stage
-FROM eclipse-temurin:17-jre-jammy
+FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
-# Create a non-root user
-RUN groupadd -r spring && useradd -r -g spring spring
-USER spring
+# Install curl for health check
+RUN apk add --no-cache curl
 
-# Copy the built JAR file
+# Copy the built application from build stage
 COPY --from=build /app/target/hotel-booking-system-1.0.0.jar app.jar
+
+# Create a non-root user to run the application
+RUN addgroup -S spring && adduser -S spring -G spring
+USER spring
 
 # Expose port
 EXPOSE 8080

@@ -4,22 +4,20 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @ActiveProfiles("test")
-public class HotelBookingApplicationTest {
+class HotelBookingApplicationTest {
 
     @Test
     void contextLoads() {
-        // This test verifies that the Spring application context loads successfully
-        assertThat(true).isTrue();
+        assertTrue(true, "Context should load successfully");
     }
 
     @Test
     void mainMethodStartsApplication() {
-        // This test ensures the main method can be called (though it won't fully start in test mode)
         HotelBookingApplication.main(new String[]{});
-        assertThat(true).isTrue();
+        assertTrue(true, "Main method should execute without errors");
     }
 }

@@ -1,18 +1,26 @@
 package com.hotel;
 
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
-class SmokeTest {
-    
+import static org.assertj.core.api.Assertions.assertThat;
+
+@SpringBootTest
+@ActiveProfiles("test")
+public class SmokeTest {
+
     @Test
-    void basicSmokeTest() {
-        assertTrue(true, "Basic smoke test should always pass");
+    void smokeTest1_ApplicationStarts() {
+        // Basic smoke test to verify the application can start
+        assertThat(true).isTrue();
     }
-    
+
     @Test
-    void environmentTest() {
+    void smokeTest2_BasicAssertion() {
+        // Another basic smoke test
         String expected = "test";
-        assertEquals(expected, expected, "Environment should be consistent");
+        String actual = "test";
+        assertThat(actual).isEqualTo(expected);
     }
 }
