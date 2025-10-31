@@ -100,7 +100,7 @@
                                                 <tr>
                                                     <td th:text="${#temporals.format(booking.checkInDate, 'EEE, MMM dd, yyyy')}"></td>
                                                     <td th:text="${#temporals.format(booking.checkOutDate, 'EEE, MMM dd, yyyy')}"></td>
-                                                    <td th:text="${ChronoUnit.DAYS.between(booking.checkInDate, booking.checkOutDate)}"></td>
+                                                    <td th:text="${numberOfNights}"></td>
                                                     <td class="fw-bold text-success" th:text="'$' + ${#numbers.formatDecimal(booking.totalPrice, 1, 2)}"></td>
                                                 </tr>
                                             </tbody>

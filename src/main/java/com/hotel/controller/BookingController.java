@@ -142,8 +142,15 @@ public class BookingController {
 
         Optional<Booking> bookingOpt = bookingService.getBookingById(id);
         if (bookingOpt.isPresent() && bookingOpt.get().getUser().getId().equals(user.getId())) {
-            model.addAttribute("booking", bookingOpt.get());
+            Booking booking = bookingOpt.get();
+            
+            // Calculate number of nights
+            long numberOfNights = ChronoUnit.DAYS.between(booking.getCheckInDate(), booking.getCheckOutDate());
+            
+            model.addAttribute("booking", booking);
             model.addAttribute("user", user);
+            model.addAttribute("numberOfNights", numberOfNights);
+            
             return "booking-confirmation";
         }
 
