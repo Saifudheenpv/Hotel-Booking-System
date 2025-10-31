@@ -81,7 +81,7 @@
                                     <strong>Dates:</strong> 
                                     <span th:text="${#temporals.format(booking.checkInDate, 'MMM dd, yyyy')}"></span> - 
                                     <span th:text="${#temporals.format(booking.checkOutDate, 'MMM dd, yyyy')}"></span>
-                                    (<span th:text="${ChronoUnit.DAYS.between(booking.checkInDate, booking.checkOutDate)}"></span> nights)
+                                    (<span th:text="${booking.numberOfNights}"></span> nights)
                                 </p>
                                 <p class="card-text mb-1">
                                     <strong>Guests:</strong> 

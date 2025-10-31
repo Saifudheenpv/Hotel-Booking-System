@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 @Entity
 @Table(name = "bookings")
@@ -116,5 +117,13 @@ public class Booking {
         return "CONFIRMED".equals(this.status) && 
                this.checkInDate != null && 
                this.checkInDate.isAfter(LocalDate.now());
+    }
+    
+    // NEW METHOD: Calculate number of nights
+    public long getNumberOfNights() {
+        if (checkInDate != null && checkOutDate != null) {
+            return ChronoUnit.DAYS.between(checkInDate, checkOutDate);
+        }
+        return 0;
     }
 }
