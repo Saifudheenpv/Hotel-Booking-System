@@ -7,6 +7,7 @@ import com.hotel.repository.RoomRepository;
 import com.hotel.repository.BookingRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -26,8 +27,16 @@ public class DataInitializer implements CommandLineRunner {
     @Autowired
     private BookingRepository bookingRepository;
 
+    @Autowired
+    private Environment env;
+
     @Override
     public void run(String... args) throws Exception {
+        if (!shouldInitializeData()) {
+            System.out.println("Skipping data initialization for test profile");
+            return;
+        }
+        
         // Clear existing data in correct order (to avoid foreign key constraints)
         bookingRepository.deleteAll();
         roomRepository.deleteAll();
@@ -35,6 +44,17 @@ public class DataInitializer implements CommandLineRunner {
         
         initializeHotelsAndRooms();
         System.out.println("Data initialization completed! Total hotels: " + hotelRepository.count());
+    }
+
+    private boolean shouldInitializeData() {
+        // Check if we're in test profile
+        String[] activeProfiles = env.getActiveProfiles();
+        for (String profile : activeProfiles) {
+            if ("test".equals(profile)) {
+                return false; // Don't initialize data in tests
+            }
+        }
+        return true;
     }
 
     private void initializeHotelsAndRooms() {
