@@ -27,7 +27,8 @@ public class HomeControllerTest {
 
     @Test
     void home_ShouldReturnHomePage() throws Exception {
-        when(hotelService.findAllHotels()).thenReturn(Collections.emptyList());
+        // Mock the service method that actually exists in your HotelService
+        when(hotelService.getAllHotels()).thenReturn(Collections.emptyList());
         
         mockMvc.perform(get("/"))
                .andExpect(status().isOk())
@@ -45,7 +46,8 @@ public class HomeControllerTest {
         hotel2.setName("Test Hotel 2");
         hotel2.setLocation("Test Location 2");
         
-        when(hotelService.findAllHotels()).thenReturn(Arrays.asList(hotel1, hotel2));
+        // Mock the actual method name in your service
+        when(hotelService.getAllHotels()).thenReturn(Arrays.asList(hotel1, hotel2));
         
         mockMvc.perform(get("/"))
                .andExpect(status().isOk())
@@ -54,10 +56,25 @@ public class HomeControllerTest {
 
     @Test
     void home_ShouldHandleEmptyHotelList() throws Exception {
-        when(hotelService.findAllHotels()).thenReturn(Collections.emptyList());
+        // Mock the actual method name in your service
+        when(hotelService.getAllHotels()).thenReturn(Collections.emptyList());
         
         mockMvc.perform(get("/"))
                .andExpect(status().isOk())
                .andExpect(model().attribute("hotels", empty()));
+    }
+
+    @Test
+    void about_ShouldReturnAboutPage() throws Exception {
+        mockMvc.perform(get("/about"))
+               .andExpect(status().isOk())
+               .andExpect(view().name("about"));
+    }
+
+    @Test
+    void contact_ShouldReturnContactPage() throws Exception {
+        mockMvc.perform(get("/contact"))
+               .andExpect(status().isOk())
+               .andExpect(view().name("contact"));
     }
 }
