@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: hotel-booking-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: Shanu@9090!
+      MYSQL_DATABASE: hotel_booking_db
+      MYSQL_ROOT_HOST: '%'
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./scripts/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - hotel-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  app:
+    build: .
+    container_name: hotel-booking-app
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - hotel-network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+
+networks:
+  hotel-network:
+    driver: bridge
