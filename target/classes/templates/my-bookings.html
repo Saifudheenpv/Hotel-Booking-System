@@ -10,9 +10,11 @@
         .booking-card {
             border-left: 4px solid #28a745;
             transition: transform 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .booking-card:hover {
             transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
         .status-confirmed {
             border-left-color: #28a745;
@@ -20,8 +22,26 @@
         .status-cancelled {
             border-left-color: #dc3545;
         }
-        .status-pending {
-            border-left-color: #ffc107;
+        .status-completed {
+            border-left-color: #6c757d;
+        }
+        .hotel-name {
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        .booking-details {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .action-buttons {
+            margin-top: 15px;
+        }
+        .no-bookings {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 40px 20px;
         }
     </style>
 </head>
@@ -42,79 +62,119 @@
     </nav>
 
     <div class="container mt-4">
-        <h1 class="mb-4">My Bookings</h1>
-
-        <!-- Success/Error Messages -->
-        <div th:if="${param.success}" class="alert alert-success alert-dismissible fade show">
-            <span th:text="${param.success}"></span>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-        <div th:if="${param.error}" class="alert alert-danger alert-dismissible fade show">
-            <span th:text="${param.error}"></span>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-
-        <div th:if="${#lists.isEmpty(bookings)}" class="text-center py-5">
-            <i class="fas fa-calendar-times fa-4x text-muted mb-3"></i>
-            <h3 class="text-muted">No Bookings Yet</h3>
-            <p class="text-muted">You haven't made any bookings yet.</p>
-            <a href="/hotels" class="btn btn-primary">Browse Hotels</a>
-        </div>
-
-        <div th:unless="${#lists.isEmpty(bookings)}" class="row">
+        <div class="row">
             <div class="col-12">
-                <div class="mb-3">
-                    <span class="badge bg-success" th:text="${#lists.size(bookings) + ' booking(s)'}"></span>
+                <h1 class="mb-4 text-center">My Bookings</h1>
+
+                <!-- Success/Error Messages -->
+                <div th:if="${param.success}" class="alert alert-success alert-dismissible fade show">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <span th:text="${param.success}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                <div th:if="${param.error}" class="alert alert-danger alert-dismissible fade show">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    <span th:text="${param.error}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
 
-                <div th:each="booking : ${bookings}" class="card mb-4 booking-card status-confirmed">
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-8">
-                                <h5 class="card-title" th:text="${booking.room.hotel.name}"></h5>
-                                <p class="card-text mb-1">
-                                    <strong>Room:</strong> 
-                                    <span th:text="${booking.room.type}"></span> - Room 
-                                    <span th:text="${booking.room.roomNumber}"></span>
-                                </p>
-                                <p class="card-text mb-1">
-                                    <strong>Dates:</strong> 
-                                    <span th:text="${#temporals.format(booking.checkInDate, 'MMM dd, yyyy')}"></span> - 
-                                    <span th:text="${#temporals.format(booking.checkOutDate, 'MMM dd, yyyy')}"></span>
-                                    (<span th:text="${booking.numberOfNights}"></span> nights)
-                                </p>
-                                <p class="card-text mb-1">
-                                    <strong>Guests:</strong> 
-                                    <span th:text="${booking.guests}"></span>
-                                </p>
-                                <p class="card-text mb-1" th:if="${booking.specialRequests}">
-                                    <strong>Special Requests:</strong> 
-                                    <span th:text="${booking.specialRequests}"></span>
-                                </p>
-                                <p class="card-text">
-                                    <strong>Booking ID:</strong> 
-                                    <code th:text="${booking.id}"></code>
-                                </p>
-                            </div>
-                            <div class="col-md-4 text-end">
-                                <div class="mb-3">
-                                    <span class="badge bg-success fs-6" th:text="${booking.status}"></span>
+                <div th:if="${#lists.isEmpty(bookings)}" class="text-center py-5 no-bookings">
+                    <i class="fas fa-calendar-times fa-4x mb-3"></i>
+                    <h3>No Bookings Yet</h3>
+                    <p class="mb-4">Start your journey with LuxStay - discover amazing hotels and create unforgettable memories.</p>
+                    <a href="/hotels" class="btn btn-light btn-lg">
+                        <i class="fas fa-search me-2"></i>Browse Hotels
+                    </a>
+                </div>
+
+                <div th:unless="${#lists.isEmpty(bookings)}">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4 class="mb-0">
+                            <span class="badge bg-success fs-6" th:text="${#lists.size(bookings) + ' booking(s)'}"></span>
+                        </h4>
+                        <a href="/hotels" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Book Another Stay
+                        </a>
+                    </div>
+
+                    <div th:each="booking : ${bookings}" class="card mb-4 booking-card" 
+                         th:classappend="${booking.status == 'CONFIRMED'} ? 'status-confirmed' : (${booking.status == 'CANCELLED'} ? 'status-cancelled' : 'status-completed')">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div class="d-flex justify-content-between align-items-start mb-3">
+                                        <h4 class="hotel-name mb-0" th:text="${booking.room.hotel.name}"></h4>
+                                        <span class="badge" 
+                                              th:class="${booking.status == 'CONFIRMED'} ? 'bg-success' : (${booking.status == 'CANCELLED'} ? 'bg-danger' : 'bg-secondary')"
+                                              th:text="${booking.status}"></span>
+                                    </div>
+                                    
+                                    <div class="booking-details mb-3">
+                                        <div class="row">
+                                            <div class="col-sm-6">
+                                                <p class="mb-2">
+                                                    <strong><i class="fas fa-door-open text-primary me-2"></i>Room:</strong><br>
+                                                    <span th:text="${booking.room.type}"></span> - Room 
+                                                    <span th:text="${booking.room.roomNumber}"></span>
+                                                </p>
+                                                <p class="mb-2">
+                                                    <strong><i class="fas fa-users text-primary me-2"></i>Guests:</strong><br>
+                                                    <span th:text="${booking.guests}"></span> guest(s)
+                                                </p>
+                                            </div>
+                                            <div class="col-sm-6">
+                                                <p class="mb-2">
+                                                    <strong><i class="fas fa-calendar-alt text-primary me-2"></i>Dates:</strong><br>
+                                                    <span th:text="${#temporals.format(booking.checkInDate, 'MMM dd, yyyy')}"></span> - 
+                                                    <span th:text="${#temporals.format(booking.checkOutDate, 'MMM dd, yyyy')}"></span><br>
+                                                    <small class="text-muted">(<span th:text="${booking.numberOfNights}"></span> nights)</small>
+                                                </p>
+                                                <p class="mb-0">
+                                                    <strong><i class="fas fa-receipt text-primary me-2"></i>Booking ID:</strong><br>
+                                                    <code th:text="${booking.id}"></code>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div th:if="${booking.specialRequests}" class="mt-3">
+                                            <strong><i class="fas fa-star text-warning me-2"></i>Special Requests:</strong>
+                                            <p class="text-muted mb-0" th:text="${booking.specialRequests}"></p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <h4 class="text-success" th:text="'$' + ${#numbers.formatDecimal(booking.totalPrice, 1, 2)}"></h4>
-                                <p class="text-muted" th:text="'Booked on ' + ${#temporals.format(booking.createdAt, 'MMM dd, yyyy')}"></p>
                                 
-                                <div class="btn-group">
-                                    <a th:href="@{/booking-confirmation/{id}(id=${booking.id})}" 
-                                       class="btn btn-outline-primary btn-sm">
-                                        <i class="fas fa-receipt"></i> View Details
-                                    </a>
-                                    <form th:action="@{/cancel-booking}" method="post" class="d-inline">
-                                        <input type="hidden" name="bookingId" th:value="${booking.id}">
-                                        <button type="submit" class="btn btn-outline-danger btn-sm" 
-                                                th:if="${booking.status == 'CONFIRMED' and booking.checkInDate.isAfter(T(java.time.LocalDate).now())}">
-                                            <i class="fas fa-times"></i> Cancel
-                                        </button>
-                                    </form>
+                                <div class="col-md-4">
+                                    <div class="text-center text-md-end">
+                                        <h3 class="text-success mb-2" th:text="'$' + ${#numbers.formatDecimal(booking.totalPrice, 1, 2)}"></h3>
+                                        <p class="text-muted mb-3">
+                                            <small>Booked on <span th:text="${#temporals.format(booking.createdAt, 'MMM dd, yyyy')}"></span></small>
+                                        </p>
+                                        
+                                        <div class="action-buttons">
+                                            <a th:href="@{/booking-confirmation/{id}(id=${booking.id})}" 
+                                               class="btn btn-outline-primary btn-sm mb-2 w-100">
+                                                <i class="fas fa-receipt me-1"></i> View Details
+                                            </a>
+                                            
+                                            <form th:action="@{/cancel-booking}" method="post" class="d-inline w-100">
+                                                <input type="hidden" name="bookingId" th:value="${booking.id}">
+                                                <button type="submit" 
+                                                        class="btn btn-outline-danger btn-sm w-100"
+                                                        th:if="${booking.status == 'CONFIRMED' and booking.canBeCancelled()}">
+                                                    <i class="fas fa-times me-1"></i> Cancel Booking
+                                                </button>
+                                            </form>
+                                            
+                                            <div th:if="${booking.status == 'CANCELLED'}" class="text-danger mt-2">
+                                                <i class="fas fa-ban me-1"></i> Cancelled
+                                            </div>
+                                            
+                                            <div th:if="${booking.status == 'CONFIRMED' and !booking.canBeCancelled()}" 
+                                                 class="text-warning mt-2">
+                                                <i class="fas fa-info-circle me-1"></i> Cannot cancel (check-in passed)
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -126,7 +186,7 @@
 
     <footer class="bg-dark text-light mt-5 py-4">
         <div class="container text-center">
-            <p>&copy; 2024 LuxStay Hotel Booking. All rights reserved.</p>
+            <p class="mb-0">&copy; 2024 LuxStay Hotel Booking. All rights reserved.</p>
         </div>
     </footer>
 

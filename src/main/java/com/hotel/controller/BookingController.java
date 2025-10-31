@@ -144,9 +144,6 @@ public class BookingController {
         if (bookingOpt.isPresent() && bookingOpt.get().getUser().getId().equals(user.getId())) {
             Booking booking = bookingOpt.get();
             
-            // No need to calculate numberOfNights here anymore
-            // It's now handled by the getNumberOfNights() method in Booking model
-            
             model.addAttribute("booking", booking);
             model.addAttribute("user", user);
             
