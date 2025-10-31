@@ -1,30 +1,30 @@
-FROM openjdk:17-slim
+# Build stage
+FROM maven:3.9.6-eclipse-temurin-17 AS build
+WORKDIR /app
+COPY pom.xml .
+COPY src ./src
+RUN mvn clean package -DskipTests
 
+# Runtime stage
+FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 
-# Copy JAR file
-COPY target/*.jar app.jar
+# Install curl for health checks
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Create application properties as ROOT (before switching user)
-RUN echo "management.endpoints.enabled-by-default=false" > /app/application-docker.properties && \
-    echo "management.endpoint.health.enabled=false" >> /app/application-docker.properties && \
-    echo "management.metrics.enable.processor=false" >> /app/application-docker.properties && \
-    echo "management.metrics.enable.jvm=false" >> /app/application-docker.properties && \
-    echo "management.metrics.enable.system=false" >> /app/application-docker.properties && \
-    echo "spring.autoconfigure.exclude=org.springframework.boot.actuate.autoconfigure.metrics.MetricsAutoConfiguration,org.springframework.boot.actuate.autoconfigure.metrics.system.SystemMetricsAutoConfiguration" >> /app/application-docker.properties
+# Create non-root user
+RUN groupadd -r spring && useradd -r -g spring spring
+USER spring
 
-# Create non-root user and set permissions
-RUN useradd -m myapp && \
-    chown -R myapp:myapp /app
-
-USER myapp
+# Copy JAR from build stage
+COPY --from=build /app/target/*.jar app.jar
 
 # Expose port
 EXPOSE 8080
 
-# Simple health check that tests the main application
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:8080/ || exit 1
+    CMD curl -f http://localhost:8080/actuator/health || exit 1
 
-# Run application with disabled Actuator
-ENTRYPOINT ["java", "-jar", "app.jar", "--spring.config.location=classpath:/application.properties,file:/app/application-docker.properties"]
+# Entry point
+ENTRYPOINT ["java", "-jar", "app.jar"]

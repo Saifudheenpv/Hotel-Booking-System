@@ -1,120 +1,275 @@
 pipeline {
     agent any
     
-    tools {
-        jdk 'JDK17'
-        maven 'Maven3'
+    environment {
+        // Docker Configuration
+        DOCKER_REGISTRY = 'saifudheenpv'
+        APP_NAME = 'hotel-booking-system'
+        VERSION = "${env.BUILD_ID}"
+        
+        // Server IPs - UPDATE THESE WITH YOUR ACTUAL IPs
+        DEV_SERVER_IP = '43.204.234.54'  // Your dev-server EC2 IP
+        JENKINS_SERVER_IP = '43.205.5.17'  // Your jenkins-server EC2 IP
+        SONAR_SERVER_IP = '13.233.38.12'  // Your sonarqube-server EC2 IP
+        
+        // Your Local Machine Public IP (for MySQL access)
+        LOCAL_DB_IP = '157.51.222.57'  // UPDATE THIS!
+        
+        // Database Credentials
+        DB_USER = 'root'
+        DB_PASSWORD = 'Shanu@9090!'
+        
+        // SonarQube
+        SONAR_SCANNER_HOME = tool 'Sonar-Scanner'
     }
     
-    environment {
-        DOCKER_IMAGE = 'hotel-booking-system'
-        DOCKER_TAG = "${env.BUILD_NUMBER}"
-        DEPLOYMENT_SERVER = '43.204.234.54'
-        MYSQL_ROOT_PASSWORD = 'Shanu@9090!'
-        MYSQL_DATABASE = 'hotel_booking_db'
+    tools {
+        maven 'Maven3'
+        jdk 'JDK17'
     }
     
     stages {
-        stage('Checkout') {
+        stage('Checkout & Validate') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/Saifudheenpv/Hotel-Booking-System.git',
-                    credentialsId: 'github-credentials'
+                checkout scm
+                
+                script {
+                    echo "🔍 Validating project structure..."
+                    if (!fileExists('pom.xml')) {
+                        error("❌ pom.xml not found!")
+                    }
+                    if (!fileExists('src/main/java/com/hotel/HotelBookingApplication.java')) {
+                        error("❌ Main application class not found!")
+                    }
+                    echo "✅ Project structure validated"
+                }
             }
         }
         
-        stage('Build') {
+        stage('Build & Compile') {
             steps {
-                sh 'mvn clean package -DskipTests'
-                sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
+                sh '''
+                echo "🏗️ Building Hotel Booking System..."
+                mvn clean compile -DskipTests
+                echo "✅ Build completed successfully!"
+                '''
             }
         }
         
-        stage('Deploy') {
+        stage('Unit Tests') {
             steps {
-                sshagent(['ubuntu-ssh-key']) {
+                sh '''
+                echo "🧪 Running unit tests..."
+                mvn test
+                '''
+            }
+            post {
+                always {
+                    junit 'target/surefire-reports/*.xml'
+                    jacoco execPattern: 'target/jacoco.exec'
+                }
+            }
+        }
+        
+        stage('Code Quality Analysis') {
+            steps {
+                withSonarQubeEnv('Sonar-Server') {
                     sh """
-                        ssh -o StrictHostKeyChecking=no ubuntu@${DEPLOYMENT_SERVER} '
-                            set -e
-                            echo "=== Deploying Fixed Application ==="
-                            
-                            # Cleanup old containers
-                            docker stop hotel-booking-mysql || true
-                            docker rm hotel-booking-mysql || true
-                            docker stop hotel-booking-system || true
-                            docker rm hotel-booking-system || true
-                            
-                            # Create network
-                            docker network create hotel-network || true
-                            
-                            # Start MySQL
-                            docker run -d \\
-                                --name hotel-booking-mysql \\
-                                --network hotel-network \\
-                                --restart unless-stopped \\
-                                -e MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD} \\
-                                -e MYSQL_DATABASE=${MYSQL_DATABASE} \\
-                                -p 3306:3306 \\
-                                -v mysql_data:/var/lib/mysql \\
-                                mysql:8.0 --default-authentication-plugin=mysql_native_password
-                            
-                            echo "Waiting for MySQL to start..."
-                            sleep 30
-                            
-                            # Create database
-                            docker exec hotel-booking-mysql mysql -u root -p${MYSQL_ROOT_PASSWORD} -e "CREATE DATABASE IF NOT EXISTS ${MYSQL_DATABASE};"
-                            
-                            # Start application with FIXED Dockerfile
-                            docker run -d \\
-                                --name hotel-booking-system \\
-                                --network hotel-network \\
-                                --restart unless-stopped \\
-                                -p 8080:8080 \\
-                                -e SPRING_DATASOURCE_URL="jdbc:mysql://hotel-booking-mysql:3306/${MYSQL_DATABASE}?useSSL=false" \\
-                                -e SPRING_DATASOURCE_USERNAME=root \\
-                                -e SPRING_DATASOURCE_PASSWORD="${MYSQL_ROOT_PASSWORD}" \\
-                                ${DOCKER_IMAGE}:${DOCKER_TAG}
-                            
-                            echo "✅ Application deployed with fixed Dockerfile!"
-                            echo "⏳ Waiting 90 seconds for full startup..."
-                            sleep 90
-                            
-                            # Final verification
-                            echo "=== Final Verification ==="
-                            docker ps
-                            
-                            if curl -s http://localhost:8080 > /dev/null; then
-                                echo "🎉 SUCCESS! Application is running and accessible!"
-                                echo "🌐 Access your Hotel Booking System at: http://${DEPLOYMENT_SERVER}:8080"
-                            else
-                                echo "⚠️ Application starting up..."
-                                docker logs hotel-booking-system --tail 20
-                            fi
-                        '
+                    mvn sonar:sonar \
+                      -Dsonar.projectKey=hotel-booking-system \
+                      -Dsonar.projectName="Hotel Booking System" \
+                      -Dsonar.host.url=http://${SONAR_SERVER_IP}:9000 \
+                      -Dsonar.login=${env.SONAR_TOKEN} \
+                      -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
                     """
                 }
+            }
+        }
+        
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+        
+        stage('Security Scan') {
+            steps {
+                sh '''
+                echo "🔒 Running security scan..."
+                mvn org.owasp:dependency-check-maven:check -DskipTests
+                echo "✅ Security scan completed"
+                '''
+            }
+        }
+        
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    echo "🐳 Building Docker image..."
+                    // Package the application first
+                    sh 'mvn clean package -DskipTests'
+                    
+                    // Build Docker image
+                    dockerImage = docker.build("${DOCKER_REGISTRY}/${APP_NAME}:${VERSION}", 
+                        "--build-arg DB_HOST=${LOCAL_DB_IP} --build-arg DB_USER=${DB_USER} --build-arg DB_PASSWORD=${DB_PASSWORD} .")
+                }
+            }
+        }
+        
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    echo "📤 Pushing Docker image to registry..."
+                    docker.withRegistry('', 'dockerhub-creds') {
+                        dockerImage.push()
+                        dockerImage.push('latest')
+                    }
+                    echo "✅ Docker image pushed successfully"
+                }
+            }
+        }
+        
+        stage('Deploy to Dev Server') {
+            steps {
+                script {
+                    echo "🚀 Deploying to Development Server..."
+                    sshagent(['ubuntu-ssh-key']) {
+                        sh """
+                        ssh -o StrictHostKeyChecking=no ubuntu@${DEV_SERVER_IP} '
+                            echo "📥 Pulling latest Docker image..."
+                            docker pull ${DOCKER_REGISTRY}/${APP_NAME}:${VERSION}
+                            
+                            echo "🛑 Stopping existing container..."
+                            docker stop hotel-booking-app || true
+                            docker rm hotel-booking-app || true
+                            
+                            echo "🎯 Starting new container..."
+                            docker run -d \\
+                                --name hotel-booking-app \\
+                                -p 8080:8080 \\
+                                -e SPRING_PROFILES_ACTIVE=docker,prod \\
+                                -e DB_HOST=${LOCAL_DB_IP} \\
+                                -e DB_USER=${DB_USER} \\
+                                -e DB_PASSWORD=${DB_PASSWORD} \\
+                                -e APP_DATA_INITIALIZE=true \\
+                                ${DOCKER_REGISTRY}/${APP_NAME}:${VERSION}
+                            
+                            echo "⏳ Waiting for application to start..."
+                            sleep 30
+                            
+                            echo "🔍 Checking application health..."
+                            curl -f http://localhost:8080/actuator/health || exit 1
+                        '
+                        """
+                    }
+                    echo "✅ Deployment completed successfully!"
+                }
+            }
+        }
+        
+        stage('Smoke Tests') {
+            steps {
+                sh """
+                echo "🚬 Running smoke tests..."
+                
+                # Test basic endpoints
+                curl -f http://${DEV_SERVER_IP}:8080/actuator/health || exit 1
+                echo "✅ Health check passed"
+                
+                curl -f http://${DEV_SERVER_IP}:8080/ || exit 1
+                echo "✅ Home page accessible"
+                
+                curl -f http://${DEV_SERVER_IP}:8080/hotels || exit 1
+                echo "✅ Hotels endpoint working"
+                
+                echo "🎉 All smoke tests passed!"
+                """
+            }
+        }
+        
+        stage('Integration Tests') {
+            steps {
+                sh """
+                echo "🔗 Running integration tests..."
+                
+                # Test creating a booking
+                curl -X POST http://${DEV_SERVER_IP}:8080/bookings \\
+                  -H "Content-Type: application/x-www-form-urlencoded" \\
+                  -d "guestName=TestUser&roomId=1&checkInDate=2024-02-01&checkOutDate=2024-02-05" \\
+                  -w "\\\\nHTTP Status: %{http_code}\\\\n" || true
+                  
+                echo "✅ Integration tests completed"
+                """
             }
         }
     }
     
     post {
         always {
-            echo "Build ${currentBuild.currentResult}"
+            // Clean workspace
+            cleanWs()
+            
+            // Send email notification
+            emailext (
+                subject: "🏨 Hotel Booking System Build #${env.BUILD_NUMBER} - ${currentBuild.currentResult}",
+                body: """
+                🏨 HOTEL BOOKING SYSTEM - CI/CD PIPELINE RESULT
+                
+                📊 Build Details:
+                - Project: ${env.JOB_NAME}
+                - Build Number: #${env.BUILD_NUMBER}
+                - Status: ${currentBuild.currentResult}
+                - Version: ${VERSION}
+                
+                🌐 Access Points:
+                - Application: http://${DEV_SERVER_IP}:8080
+                - Health Check: http://${DEV_SERVER_IP}:8080/actuator/health
+                
+                🔗 Useful Links:
+                - Build URL: ${env.BUILD_URL}
+                - SonarQube: http://${SONAR_SERVER_IP}:9000
+                - Docker Hub: https://hub.docker.com/r/${DOCKER_REGISTRY}/${APP_NAME}
+                
+                📈 Deployment Info:
+                - Environment: Development
+                - Database: MySQL (Local - ${LOCAL_DB_IP})
+                - Server: AWS EC2 (${DEV_SERVER_IP})
+                
+                💡 Next Steps:
+                - Verify data initialization completed
+                - Test booking functionality
+                - Check application logs if needed
+                """,
+                to: 'mesaifudheenpv@gmail.com',
+                replyTo: 'mesaifudheenpv@gmail.com'
+            )
         }
         success {
-            emailext (
-                subject: "SUCCESS: Hotel Booking System Build #${env.BUILD_NUMBER}",
-                body: """
-                <h2>🚀 Deployment Successful!</h2>
-                <p><b>Project:</b> Hotel Booking System</p>
-                <p><b>Build Number:</b> ${env.BUILD_NUMBER}</p>
-                <p><b>Status:</b> Fixed Actuator Metrics Issue</p>
-                <p><b>Application URL:</b> <a href="http://${DEPLOYMENT_SERVER}:8080">http://${DEPLOYMENT_SERVER}:8080</a></p>
-                <p><b>Fix Applied:</b> Updated Dockerfile with disabled Actuator metrics</p>
-                """,
-                to: "mesaifudheenpv@gmail.com",
-                replyTo: "mesaifudheenpv@gmail.com"
-            )
+            script {
+                echo "🎉 🏨 HOTEL BOOKING SYSTEM DEPLOYED SUCCESSFULLY!"
+                echo "🌐 Application URL: http://${DEV_SERVER_IP}:8080"
+                echo "🔍 Health Check: http://${DEV_SERVER_IP}:8080/actuator/health"
+                echo "📊 SonarQube: http://${SONAR_SERVER_IP}:9000"
+                
+                // Slack notification would go here if configured
+            }
+        }
+        failure {
+            script {
+                echo "❌ Deployment failed! Check Jenkins logs for details."
+                
+                // Attempt to get logs from failed deployment
+                sshagent(['ubuntu-ssh-key']) {
+                    sh """
+                    ssh -o StrictHostKeyChecking=no ubuntu@${DEV_SERVER_IP} '
+                        echo "=== Application Logs ==="
+                        docker logs hotel-booking-app --tail 50 || true
+                    ' || true
+                    """
+                }
+            }
         }
     }
 }

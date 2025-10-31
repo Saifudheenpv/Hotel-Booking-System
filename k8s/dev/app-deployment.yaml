@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hotel-booking-app
+  namespace: hotel-booking-dev
+  labels:
+    app: hotel-booking
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hotel-booking
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: hotel-booking
+        tier: backend
+    spec:
+      containers:
+      - name: hotel-booking-app
+        image: saifudheenpv/hotel-booking-system:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "docker,prod"
+        - name: DB_HOST
+          value: "157.51.222.57"  # UPDATE THIS!
+        - name: DB_USER
+          value: "root"
+        - name: DB_PASSWORD
+          value: "Shanu@9090!"
+        - name: APP_DATA_INITIALIZE
+          value: "true"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotel-booking-service
+  namespace: hotel-booking-dev
+spec:
+  selector:
+    app: hotel-booking
+    tier: backend
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+  type: LoadBalancer
