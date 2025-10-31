@@ -9,11 +9,11 @@ pipeline {
         
         // Server IPs
         DEV_SERVER_IP = '43.204.234.54'  // Your dev-server EC2 IP
-        JENKINS_SERVER_IP = '13.234.115.138'  // Your jenkins-server EC2 IP
-        SONAR_SERVER_IP = '65.0.159.11'  // Your sonarqube-server EC2 IP
+        JENKINS_SERVER_IP = '43.205.5.17'  // Your jenkins-server EC2 IP
+        SONAR_SERVER_IP = '13.233.38.12'  // Your sonarqube-server EC2 IP
         
         // Your Local Machine Public IP (for MySQL access)
-        LOCAL_DB_IP = 'YOUR_LOCAL_MACHINE_PUBLIC_IP'  // UPDATE THIS!
+        LOCAL_DB_IP = '157.51.222.57'  // UPDATE THIS WITH YOUR ACTUAL IP!
         
         // Database Credentials
         DB_USER = 'root'
@@ -60,18 +60,14 @@ pipeline {
             steps {
                 sh '''
                 echo "🧪 Running unit tests..."
-                # Run tests but continue even if some fail
                 mvn test -Dmaven.test.failure.ignore=true
                 echo "✅ Tests execution completed"
                 '''
             }
             post {
                 always {
-                    script {
-                        // Always publish test results
-                        junit 'target/surefire-reports/*.xml'
-                        echo "✅ Test reports published to Jenkins"
-                    }
+                    junit 'target/surefire-reports/*.xml'
+                    echo "✅ Test reports published to Jenkins"
                 }
             }
         }
@@ -117,10 +113,8 @@ pipeline {
             steps {
                 script {
                     echo "🐳 Building Docker image..."
-                    // Package the application first
                     sh 'mvn clean package -DskipTests'
                     
-                    // Build Docker image
                     dockerImage = docker.build("${DOCKER_REGISTRY}/${APP_NAME}:${VERSION}", 
                         "--build-arg DB_HOST=${LOCAL_DB_IP} --build-arg DB_USER=${DB_USER} --build-arg DB_PASSWORD=${DB_PASSWORD} .")
                     echo "✅ Docker image built successfully"
@@ -195,7 +189,6 @@ pipeline {
                 sh """
                 echo "🚬 Running smoke tests..."
                 
-                # Test basic endpoints
                 curl -f http://${DEV_SERVER_IP}:8080/actuator/health && echo "✅ Health check passed"
                 curl -f http://${DEV_SERVER_IP}:8080/ && echo "✅ Home page accessible"
                 curl -f http://${DEV_SERVER_IP}:8080/hotels && echo "✅ Hotels endpoint working"
@@ -208,10 +201,8 @@ pipeline {
     
     post {
         always {
-            // Clean workspace
             cleanWs()
             
-            // Send email notification
             emailext (
                 subject: "🏨 Hotel Booking System Build #${env.BUILD_NUMBER} - ${currentBuild.currentResult}",
                 body: """
@@ -252,15 +243,12 @@ pipeline {
                 echo "🌐 Application URL: http://${DEV_SERVER_IP}:8080"
                 echo "🔍 Health Check: http://${DEV_SERVER_IP}:8080/actuator/health"
                 echo "📊 SonarQube: http://${SONAR_SERVER_IP}:9000"
-                
-                // Slack notification would go here if configured
             }
         }
         failure {
             script {
                 echo "❌ Pipeline failed! Check Jenkins logs for details."
                 
-                // Attempt to get logs from failed deployment
                 sshagent(['ubuntu-ssh-key']) {
                     sh """
                     ssh -o StrictHostKeyChecking=no ubuntu@${DEV_SERVER_IP} '

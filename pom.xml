@@ -1,4 +1,3 @@
-cat > pom.xml << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -20,7 +19,6 @@ cat > pom.xml << 'EOF'
     <properties>
         <java.version>17</java.version>
         <mysql.version>8.3.0</mysql.version>
-        <!-- CI/CD Plugin Versions -->
         <sonar-maven-plugin.version>3.9.1.2184</sonar-maven-plugin.version>
         <dependency-check-maven.version>7.1.1</dependency-check-maven.version>
         <maven-surefire-plugin.version>3.0.0</maven-surefire-plugin.version>
@@ -213,4 +211,3 @@ cat > pom.xml << 'EOF'
         </profile>
     </profiles>
 </project>
-EOF
