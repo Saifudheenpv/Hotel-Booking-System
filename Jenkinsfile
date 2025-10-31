@@ -133,29 +133,30 @@ pipeline {
                                 docker pull ${DOCKER_IMAGE}:latest
                                 
                                 # Start MySQL
-                                docker run -d \
-                                    --name hotel-booking-mysql \
-                                    --restart unless-stopped \
-                                    -e MYSQL_ROOT_PASSWORD=Shanu@9090! \
-                                    -e MYSQL_DATABASE=hotel_booking_db \
-                                    -p 3306:3306 \
-                                    -v mysql_data:/var/lib/mysql \
+                                docker run -d \\
+                                    --name hotel-booking-mysql \\
+                                    --restart unless-stopped \\
+                                    -e MYSQL_ROOT_PASSWORD=Shanu@9090! \\
+                                    -e MYSQL_DATABASE=hotel_booking_db \\
+                                    -p 3306:3306 \\
+                                    -v mysql_data:/var/lib/mysql \\
                                     mysql:8.0
                                 
                                 # Wait for MySQL to be ready
+                                echo "Waiting for MySQL to start..."
                                 sleep 30
                                 
-                                # Start application
-                                docker run -d \
-                                    --name hotel-booking-app \
-                                    --restart unless-stopped \
-                                    --link hotel-booking-mysql:mysql \
-                                    -e SPRING_PROFILES_ACTIVE=docker \
-                                    -e SPRING_DATASOURCE_URL=jdbc:mysql://hotel-booking-mysql:3306/hotel_booking_db?useSSL=false\&serverTimezone=UTC\&allowPublicKeyRetrieval=true \
-                                    -e SPRING_DATASOURCE_USERNAME=root \
-                                    -e SPRING_DATASOURCE_PASSWORD=Shanu@9090! \
-                                    -p 8080:8080 \
+                                # Start application with environment variables
+                                docker run -d \\
+                                    --name hotel-booking-app \\
+                                    --restart unless-stopped \\
+                                    --link hotel-booking-mysql:mysql \\
+                                    -e SPRING_PROFILES_ACTIVE=docker \\
+                                    -p 8080:8080 \\
                                     ${DOCKER_IMAGE}:latest
+                                
+                                echo "Deployment completed. Waiting for app to start..."
+                                sleep 30
                             '
                         """
                         echo '✅ Application deployed successfully!'
